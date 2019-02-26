@@ -18,6 +18,34 @@
 #define STRING_LENGTH_SIZE			2
 #define REMAINING_LENGTH_MAX_SIZE	4
 
+#if MBED_CONF_MBED_TRACE_ENABLE
+static const char * const mqtt_packet_type_str[15] =
+{
+	"UNDEFINED",
+	"CONNECT",
+	"CONNACK",
+	"PUBLISH",
+	"PUBACK",
+	"PUBREC",
+	"PUBREL",
+	"PUBCOMP",
+	"SUBSCRIBE",
+	"SUBACK",
+	"UNSUBSCRIBE",
+	"UNSUBACK",
+	"PINGREQ",
+	"PINGRESP",
+	"DISCONNECT"
+};
+
+static const char* mqtt_packet_type_to_str(mqtt_packet_type_t pkt_type)
+{
+	uint8_t i = pkt_type;
+	if (i > 15 || i < 0) i = 0; // ensure within bounds
+	return mqtt_packet_type_str[i];
+}
+#endif
+
 uint8_t MqttClient::encode_remaining_length(uint8_t *dest, size_t len)
 {
 	uint8_t encoded, count = 0;
@@ -629,7 +657,7 @@ nsapi_error_t MqttClient::do_work()
 
 	// at this point, we have all the data so we can begin decoding the buffer
 	fhdr.whole = fhdr_w;
-	tr_debug("Received packet type (%02x)", fhdr.bits.packet_type);
+	tr_debug("Received %s (%02x) packet", mqtt_packet_type_to_str(fhdr.bits.packet_type), fhdr.bits.packet_type);
 
 	switch (fhdr.bits.packet_type)
 	{
