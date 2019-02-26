@@ -6,7 +6,6 @@
 class TLSMqttClient : public MqttClient {
 public:
     TLSMqttClient() : MqttClient() { }
-    TLSMqttClient(const char *root_ca_pem) : MqttClient() { _root_ca_pem = root_ca_pem; }
 
     nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port);
 
@@ -19,7 +18,6 @@ protected:
 
 private:
     TLSSocket sock;
-    const char *_root_ca_pem;
     Callback<void(TLSSocket*)> setup_cb;
 };
 

@@ -7,16 +7,6 @@ nsapi_error_t TLSMqttClient::open(NetworkInterface *net, const char* hostname, c
 {
     nsapi_error_t ret = NSAPI_ERROR_OK;
     
-    if (_root_ca_pem != NULL)
-    {
-        ret = sock.set_root_ca_cert(_root_ca_pem);
-        if (ret != NSAPI_ERROR_OK) 
-        {
-            tr_error("socket.set_root_ca_cert() failed ret = %d", ret);
-            return ret;
-        }
-    }
-
     if (setup_cb)
     {
         setup_cb(&sock);
