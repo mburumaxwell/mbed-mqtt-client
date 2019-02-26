@@ -665,30 +665,30 @@ nsapi_error_t MqttClient::do_work()
 		tr_error("Packet type (%02x) not handled", fhdr.bits.packet_type);
 		break;
 	case MQTT_PACKET_TYPE_CONNACK:
-		if (on_connect_cb)
+		if (packet_received_cb)
 		{
 			mqtt_packet_connect_ack_t con_ack;
 			con_ack.sessionPresent = (pl_raw[0] & 0x01);
 			con_ack.code = (mqtt_connect_returncode_t)pl_raw[1];
-			on_connect_cb(&con_ack);
+			packet_received_cb(MQTT_PACKET_TYPE_CONNACK, &con_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PINGRESP:
-		if (on_ping_response_cb)
+		if (packet_received_cb)
 		{
-			on_ping_response_cb();
+			packet_received_cb(MQTT_PACKET_TYPE_PINGRESP, NULL);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBACK:
-		if (on_publish_ack_cb)
+		if (packet_received_cb)
 		{
 			mqtt_packet_publish_ack_t pub_ack;
 			pub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			on_publish_ack_cb(&pub_ack);
+			packet_received_cb(MQTT_PACKET_TYPE_PUBACK, &pub_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_SUBACK:
-		if (on_subscribe_ack_cb)
+		if (packet_received_cb)
 		{
 			mqtt_packet_subscribe_ack_t sub_ack;
 			sub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
@@ -700,17 +700,17 @@ nsapi_error_t MqttClient::do_work()
 				{
 					sub_ack.responses[i] = (mqtt_subscribe_returncode_t)(pl_raw[i + 2]); // offset bytes used by packet id
 				}
-				on_subscribe_ack_cb(&sub_ack);
+				packet_received_cb(MQTT_PACKET_TYPE_SUBACK, &sub_ack);
 				free(sub_ack.responses);
 			}
 		}
 		break;
 	case MQTT_PACKET_TYPE_UNSUBACK:
-		if (on_unsubscribe_ack_cb)
+		if (packet_received_cb)
 		{
 			mqtt_packet_unsubscribe_ack_t unsub_ack;
 			unsub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			on_unsubscribe_ack_cb(&unsub_ack);
+			packet_received_cb(MQTT_PACKET_TYPE_UNSUBACK, &unsub_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBLISH:
@@ -722,11 +722,9 @@ nsapi_error_t MqttClient::do_work()
 		
 		uint8_t *pub_buf = pl_raw;
 		
-		// read the topic length
+		// read the topic length and set the topic address
 		pub.topic_len = (*pub_buf++) << 8;
 		pub.topic_len |= *pub_buf++;
-		
-		// set the topic address
 		pub.topic = (char *)pub_buf;
 		pub_buf += pub.topic_len;
 		
@@ -742,9 +740,9 @@ nsapi_error_t MqttClient::do_work()
 		pub.payload.content = pub_buf;
 		
 		// make the callback if available
-		if (on_publish_cb)
+		if(packet_received_cb)
 		{
-			on_publish_cb(&pub);
+			packet_received_cb(MQTT_PACKET_TYPE_PUBLISH, &pub);
 		}
 		break;
 	}
@@ -753,32 +751,7 @@ nsapi_error_t MqttClient::do_work()
 	return bf_sz;
 }
 
-void MqttClient::on_connect(Callback<void(mqtt_packet_connect_ack_t*)> cb)
+void MqttClient::packet_received(Callback<void(mqtt_packet_type_t, void*)> cb)
 {
-	on_connect_cb = cb;
-}
-
-void MqttClient::on_ping_response(Callback<void()> cb)
-{
-	on_ping_response_cb = cb;
-}
-
-void MqttClient::on_publish_ack(Callback<void(mqtt_packet_publish_ack_t*)> cb)
-{
-	on_publish_ack_cb = cb;
-}
-
-void MqttClient::on_subscribe_ack(Callback<void(mqtt_packet_subscribe_ack_t*)> cb)
-{
-	on_subscribe_ack_cb = cb;
-}
-
-void MqttClient::on_unsubscribe_ack(Callback<void(mqtt_packet_unsubscribe_ack_t*)> cb)
-{
-	on_unsubscribe_ack_cb = cb;
-}
-
-void MqttClient::on_publish(Callback<void(mqtt_packet_publish_t*)> cb)
-{
-	on_publish_cb = cb;
+	packet_received_cb = cb;
 }

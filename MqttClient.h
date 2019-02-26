@@ -30,14 +30,8 @@ public:
 	nsapi_error_t unsubscribe(mqtt_packet_unsubscribe_t *packet);
 
 	nsapi_error_t do_work();
-
-public:	
-	void on_connect(Callback<void(mqtt_packet_connect_ack_t*)> cb);
-	void on_ping_response(Callback<void()> cb);
-	void on_publish_ack(Callback<void(mqtt_packet_publish_ack_t*)> cb);
-	void on_subscribe_ack(Callback<void(mqtt_packet_subscribe_ack_t*)> cb);
-	void on_unsubscribe_ack(Callback<void(mqtt_packet_unsubscribe_ack_t*)> cb);
-	void on_publish(Callback<void(mqtt_packet_publish_t*)> cb);
+	
+	void packet_received(Callback<void(mqtt_packet_type_t, void*)> cb);
 
 protected:
     virtual nsapi_size_or_error_t send(const void *data, nsapi_size_t len) = 0;
@@ -46,14 +40,7 @@ protected:
 private:
 	uint8_t encode_remaining_length(uint8_t *dest, size_t len);
 	nsapi_size_or_error_t read_remaining_length(size_t *val);
-
-private:
-	Callback<void(mqtt_packet_connect_ack_t*)> on_connect_cb;
-	Callback<void()> on_ping_response_cb;
-	Callback<void(mqtt_packet_publish_ack_t*)> on_publish_ack_cb;
-	Callback<void(mqtt_packet_subscribe_ack_t*)> on_subscribe_ack_cb;
-	Callback<void(mqtt_packet_unsubscribe_ack_t*)> on_unsubscribe_ack_cb;
-	Callback<void(mqtt_packet_publish_t*)> on_publish_cb;
+	Callback<void(mqtt_packet_type_t, void*)> packet_received_cb;
 };
 
 #endif /* __MQTT_CLIENT_H */
