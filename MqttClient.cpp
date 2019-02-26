@@ -79,15 +79,15 @@ nsapi_size_or_error_t MqttClient::read_remaining_length(size_t *val)
 	return len;
 }
 
-nsapi_error_t MqttClient::connect(const char *clientid, const char *username, const char *password, uint16_t keep_alive, bool clean)
+nsapi_error_t MqttClient::connect(const char *clientid, const char *username, const char *password, uint16_t keep_alive_seconds, bool clean)
 {
 	mqtt_packet_connect_t packet;
 
-	packet.clientId          = (char *) clientid;
-	packet.keepAliveSeconds  = keep_alive;
-	packet.cleanSession      = clean ? 1 : 0;
-	packet.username          = (char *) username;
-	packet.password          = (char *) password;
+	packet.clientId           = (char *) clientid;
+	packet.keep_alive_seconds = keep_alive_seconds;
+	packet.clean_session      = clean ? 1 : 0;
+	packet.username           = (char *) username;
+	packet.password           = (char *) password;
 
 	return connect(&packet);
 }
@@ -105,7 +105,7 @@ nsapi_error_t MqttClient::connect(mqtt_packet_connect_t *packet)
 		return NSAPI_ERROR_PARAMETER;
 
 	// set flags
-	options.connect_flags.bits.clean_session = packet->cleanSession;
+	options.connect_flags.bits.clean_session = packet->clean_session;
 	options.connect_flags.bits.username      = (packet->username != NULL && ((username_len = strlen(packet->username)) > 0));
 	options.connect_flags.bits.password	     = (packet->password != NULL && ((password_len = strlen(packet->password)) > 0));
 	options.connect_flags.bits.will		     = (packet->will.topic != NULL && ((will_topic_len = strlen(packet->will.topic)) > 0));
@@ -161,8 +161,8 @@ nsapi_error_t MqttClient::connect(mqtt_packet_connect_t *packet)
 	tdst += sizeof(mqtt_connect_options_t);
 
 	// write the keep alive period (seconds)
-	*tdst++ = (uint8_t)(packet->keepAliveSeconds >> 8);
-	*tdst++ = (uint8_t)(packet->keepAliveSeconds);
+	*tdst++ = (uint8_t)(packet->keep_alive_seconds >> 8);
+	*tdst++ = (uint8_t)(packet->keep_alive_seconds);
 
 	// write the client id length
 	*tdst++ = (uint8_t)(client_id_len >> 8);
@@ -668,7 +668,7 @@ nsapi_error_t MqttClient::do_work()
 		if (packet_received_cb)
 		{
 			mqtt_packet_connect_ack_t con_ack;
-			con_ack.sessionPresent = (pl_raw[0] & 0x01);
+			con_ack.session_present = (pl_raw[0] & 0x01);
 			con_ack.code = (mqtt_connect_returncode_t)pl_raw[1];
 			packet_received_cb(MQTT_PACKET_TYPE_CONNACK, &con_ack);
 		}

@@ -9,7 +9,7 @@ class MqttClient {
 public:
     virtual nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port) = 0;
 
-	nsapi_error_t connect(const char *clientid, const char *username, const char *password, uint16_t keep_alive = 0, bool clean = false);
+	nsapi_error_t connect(const char *clientid, const char *username, const char *password, uint16_t keep_alive_seconds = 0, bool clean = false);
 	nsapi_error_t connect(mqtt_packet_connect_t *packet);
 
 	nsapi_error_t disconnect();

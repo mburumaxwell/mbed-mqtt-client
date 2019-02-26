@@ -80,8 +80,8 @@ typedef struct {
 	char *clientId;
 	char *username;
 	char *password;
-	uint16_t keepAliveSeconds;
-	uint8_t cleanSession;
+	uint16_t keep_alive_seconds;
+	uint8_t clean_session;
 	mqtt_will_options_t will;
 } mqtt_packet_connect_t;
 
@@ -96,7 +96,7 @@ typedef enum {
 } mqtt_connect_returncode_t;
 
 typedef struct {
-	uint8_t sessionPresent;
+	uint8_t session_present;
 	mqtt_connect_returncode_t code;
 } mqtt_packet_connect_ack_t;
 
