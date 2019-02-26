@@ -5,14 +5,6 @@
 #include "nsapi_types.h"
 #include "mqtt_types.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
 class MqttClient {
 public:
     virtual nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port) = 0;
@@ -54,9 +46,6 @@ protected:
 private:
 	uint8_t encode_remaining_length(uint8_t *dest, size_t len);
 	nsapi_size_or_error_t read_remaining_length(size_t *val);
-
-private:
-    LowPowerTicker tkr_do_work;
 
 private:
 	Callback<void(mqtt_packet_connect_ack_t*)> on_connect_cb;
