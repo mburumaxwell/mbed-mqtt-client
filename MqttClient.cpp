@@ -83,11 +83,14 @@ nsapi_error_t MqttClient::connect(const char *clientid, const char *username, co
 {
 	mqtt_packet_connect_t packet;
 
+	// clean packet
+	memset(&packet, 0, sizeof(mqtt_packet_connect_t));
+
 	packet.clientId           = (char *) clientid;
-	packet.keep_alive_seconds = keep_alive_seconds;
-	packet.clean_session      = clean ? 1 : 0;
 	packet.username           = (char *) username;
 	packet.password           = (char *) password;
+	packet.keep_alive_seconds = keep_alive_seconds;
+	packet.clean_session      = clean ? 1 : 0;
 
 	return connect(&packet);
 }
@@ -418,6 +421,10 @@ nsapi_error_t MqttClient::publish_ack(mqtt_packet_publish_ack_t *packet)
 nsapi_error_t MqttClient::subscribe(const char *topic, const uint16_t packet_id)
 {
 	mqtt_subscribe_request_t req;
+	
+	// clean request
+	memset(&req, 0, sizeof(mqtt_subscribe_request_t));
+    
 	req.topic     = (char *)topic;
 	req.topic_len = strlen(topic);
 	req.qos       = MQTT_PACKET_DELIVERY_AT_LEAST_ONCE;
@@ -429,6 +436,7 @@ nsapi_error_t MqttClient::subscribe(mqtt_subscribe_request_t* requests, const ui
 {
 	mqtt_packet_subscribe_t packet;
 
+	// clean packet
 	memset(&packet, 0, sizeof(mqtt_packet_subscribe_t));
     
 	packet.id               = packet_id;
@@ -511,6 +519,10 @@ nsapi_error_t MqttClient::subscribe(mqtt_packet_subscribe_t *packet)
 nsapi_error_t MqttClient::unsubscribe(const char *topic, const uint16_t packet_id)
 {
 	mqtt_unsubscribe_request_t req;
+	
+	// clean packet
+	memset(&req, 0, sizeof(mqtt_unsubscribe_request_t));
+    
 	req.topic     = (char *)topic;
 	req.topic_len = strlen(topic);
 	
@@ -521,6 +533,7 @@ nsapi_error_t MqttClient::unsubscribe(mqtt_unsubscribe_request_t* requests, cons
 {
 	mqtt_packet_unsubscribe_t packet;
 
+	// clean packet
 	memset(&packet, 0, sizeof(mqtt_packet_unsubscribe_t));
     
 	packet.id               = packet_id;
@@ -668,6 +681,7 @@ nsapi_error_t MqttClient::do_work()
 		if (packet_received_cb)
 		{
 			mqtt_packet_connect_ack_t con_ack;
+			memset(&con_ack, 0, sizeof(mqtt_packet_connect_ack_t));
 			con_ack.session_present = (pl_raw[0] & 0x01);
 			con_ack.code = (mqtt_connect_returncode_t)pl_raw[1];
 			packet_received_cb(MQTT_PACKET_TYPE_CONNACK, &con_ack);
@@ -683,6 +697,7 @@ nsapi_error_t MqttClient::do_work()
 		if (packet_received_cb)
 		{
 			mqtt_packet_publish_ack_t pub_ack;
+			memset(&pub_ack, 0, sizeof(mqtt_packet_publish_ack_t));
 			pub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
 			packet_received_cb(MQTT_PACKET_TYPE_PUBACK, &pub_ack);
 		}
@@ -691,6 +706,7 @@ nsapi_error_t MqttClient::do_work()
 		if (packet_received_cb)
 		{
 			mqtt_packet_subscribe_ack_t sub_ack;
+			memset(&sub_ack, 0, sizeof(mqtt_packet_subscribe_ack_t));
 			sub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
 			sub_ack.responses_count = (rem_len - 2); // remove count for the packet id
 			sub_ack.responses = new mqtt_subscribe_returncode_t[sub_ack.responses_count];
@@ -709,6 +725,7 @@ nsapi_error_t MqttClient::do_work()
 		if (packet_received_cb)
 		{
 			mqtt_packet_unsubscribe_ack_t unsub_ack;
+			memset(&unsub_ack, 0, sizeof(mqtt_packet_unsubscribe_ack_t));
 			unsub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
 			packet_received_cb(MQTT_PACKET_TYPE_UNSUBACK, &unsub_ack);
 		}
@@ -716,6 +733,7 @@ nsapi_error_t MqttClient::do_work()
 	case MQTT_PACKET_TYPE_PUBLISH:
 		mqtt_packet_publish_t pub;
 		mqtt_header_fixed_publish_t *fhdr_pub = (mqtt_header_fixed_publish_t *)(&fhdr);
+		memset(&pub, 0, sizeof(mqtt_packet_publish_t));
 		pub.duplicate    = fhdr_pub->bits.dup;
 		pub.retain       = fhdr_pub->bits.retain;
 		pub.qos          = fhdr_pub->bits.qos;
