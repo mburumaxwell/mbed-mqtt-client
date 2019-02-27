@@ -41,7 +41,7 @@ static const char * const mqtt_packet_type_str[15] =
 static const char* mqtt_packet_type_to_str(mqtt_packet_type_t pkt_type)
 {
 	uint8_t i = pkt_type;
-	if (i > 15 || i < 0) i = 0; // ensure within bounds
+	if (i > 15 || i <= 0) i = 0; // ensure within bounds
 	return mqtt_packet_type_str[i];
 }
 #endif

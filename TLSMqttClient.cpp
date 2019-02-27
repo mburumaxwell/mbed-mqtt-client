@@ -9,7 +9,12 @@ nsapi_error_t TLSMqttClient::open(NetworkInterface *net, const char* hostname, c
     
     if (setup_cb)
     {
-        setup_cb(&sock);
+        ret = setup_cb(&sock);
+		if (ret != NSAPI_ERROR_OK) 
+		{
+			tr_error("setup() failed ret = %d", ret);
+			return ret;
+		}
     }
 
     ret = sock.open(net);

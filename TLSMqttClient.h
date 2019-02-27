@@ -9,7 +9,7 @@ public:
 
     nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port);
 
-    void setup(Callback<void(TLSSocket*)> cb) { setup_cb = cb; }
+	void setup(Callback<nsapi_error_t(TLSSocket*)> cb) { setup_cb = cb; }
 
 
 protected:
@@ -18,7 +18,7 @@ protected:
 
 private:
     TLSSocket sock;
-    Callback<void(TLSSocket*)> setup_cb;
+	Callback<nsapi_error_t(TLSSocket*)> setup_cb;
 };
 
 #endif /* __TLS_MQTT_CLIENT_H */
