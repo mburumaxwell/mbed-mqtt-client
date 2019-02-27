@@ -46,6 +46,11 @@ static const char* mqtt_packet_type_to_str(mqtt_packet_type_t pkt_type)
 }
 #endif
 
+MqttClient::MqttClient(Socket *socket) : _socket(socket)
+{
+	
+}
+
 uint8_t MqttClient::encode_remaining_length(uint8_t *dest, size_t len)
 {
 	uint8_t encoded, count = 0;
@@ -66,7 +71,7 @@ nsapi_size_or_error_t MqttClient::read_remaining_length(size_t *val)
 
 	*val = 0;
 	do {
-		sz_or_err = recv(&b, 1);
+		sz_or_err = _socket->recv(&b, 1);
 		// if we did not get exactly one byte, return the error
 		if(sz_or_err != 1) return sz_or_err;
 
@@ -221,7 +226,7 @@ nsapi_error_t MqttClient::connect(mqtt_packet_connect_t *packet)
 
 	len = tdst - buf; // calculate the length
 
-	sz_or_err = send(buf, len);
+	sz_or_err = _socket->send(buf, len);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -246,7 +251,7 @@ nsapi_error_t MqttClient::disconnect()
 	// write the fixed header
     uint8_t buf[2] = { fhdr.whole, 0 }; // fixed header and 0 remaining length
 	
-    sz_or_err = send(buf, 2);
+    sz_or_err = _socket->send(buf, 2);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -269,7 +274,7 @@ nsapi_error_t MqttClient::ping()
 	// write the fixed header
     uint8_t buf[2] = { fhdr.whole, 0 }; // fixed header and 0 remaining length
 	
-    sz_or_err = send(buf, 2);
+    sz_or_err = _socket->send(buf, 2);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -357,7 +362,7 @@ nsapi_error_t MqttClient::publish(mqtt_packet_publish_t *packet)
 
 	len = tdst - buf; // calculate the length
 
-	sz_or_err = send(buf, len);
+	sz_or_err = _socket->send(buf, len);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -368,7 +373,7 @@ nsapi_error_t MqttClient::publish(mqtt_packet_publish_t *packet)
 	tr_hex_dump(buf, len);
 
 	// now send the payload
-    sz_or_err = send(packet->payload.content, packet->payload.length);
+    sz_or_err = _socket->send(packet->payload.content, packet->payload.length);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -406,7 +411,7 @@ nsapi_error_t MqttClient::publish_ack(mqtt_packet_publish_ack_t *packet)
 		(uint8_t)(packet->id)
 	};
 	
-    sz_or_err = send(buf, 4);
+    sz_or_err = _socket->send(buf, 4);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -502,7 +507,7 @@ nsapi_error_t MqttClient::subscribe(mqtt_packet_subscribe_t *packet)
 	}
 
 	len = tdst - buf; // calculate the length
-    sz_or_err = send(buf, len);
+    sz_or_err = _socket->send(buf, len);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -596,7 +601,7 @@ nsapi_error_t MqttClient::unsubscribe(mqtt_packet_unsubscribe_t *packet)
 	}
 
 	len = tdst - buf; // calculate the length
-    sz_or_err = send(buf, len);
+    sz_or_err = _socket->send(buf, len);
 	if (sz_or_err <= 0)
 	{
 		tr_send_fail(sz_or_err);
@@ -619,7 +624,7 @@ nsapi_error_t MqttClient::do_work()
 
 	// try read the type byte
 	// would block response means there is no data, so wait for later, if zero (signal close) or less, close the underlying network
-	sz_or_err = recv(&fhdr_w, 1);
+	sz_or_err = _socket->recv(&fhdr_w, 1);
 	if (sz_or_err == NSAPI_ERROR_WOULD_BLOCK) return NSAPI_ERROR_WOULD_BLOCK;
 	else if (sz_or_err <= 0)
 	{
@@ -654,7 +659,7 @@ nsapi_error_t MqttClient::do_work()
 	if(rem_len > 0)
 	{
 		// read the remaining data into created buffer
-		sz_or_err = recv(pl_raw, rem_len);
+		sz_or_err = _socket->recv(pl_raw, rem_len);
 		if (sz_or_err <= 0)
 		{
 			tr_recv_fail(sz_or_err);
@@ -772,4 +777,12 @@ nsapi_error_t MqttClient::do_work()
 void MqttClient::packet_received(Callback<void(mqtt_packet_type_t, void*)> cb)
 {
 	packet_received_cb = cb;
+}
+
+void MqttClient::socket_event()
+{
+	if (on_events_to_process_cb)
+	{
+		on_events_to_process_cb(this);
+	}
 }

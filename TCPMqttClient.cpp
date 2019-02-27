@@ -22,6 +22,10 @@ nsapi_error_t TCPMqttClient::open(NetworkInterface *net, const char* hostname, c
     }
 
     tr_debug("Connected to \"mqtt://%s:%u\"", hostname, port);    
-    return ret;
+	
+	// register for notifications (only after connection)
+	sock.sigio(callback(this, &TCPMqttClient::socket_event));
+	
+	return ret;
 }
 

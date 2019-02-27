@@ -7,6 +7,8 @@
 
 class MqttClient {
 public:
+	MqttClient(Socket *socket);
+	
     virtual nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port) = 0;
 
 	nsapi_error_t connect(const char *clientid, const char *username, const char *password, uint16_t keep_alive_seconds = 0, bool clean = false);
@@ -33,14 +35,19 @@ public:
 	
 	void packet_received(Callback<void(mqtt_packet_type_t, void*)> cb);
 
-protected:
-    virtual nsapi_size_or_error_t send(const void *data, nsapi_size_t len) = 0;
-    virtual nsapi_size_or_error_t recv(void *data, nsapi_size_t len) = 0;
+	void on_events_to_process(Callback<void(MqttClient*)> cb) { on_events_to_process_cb = cb; }
 
+protected:
+	virtual void socket_event();
+	
 private:
 	uint8_t encode_remaining_length(uint8_t *dest, size_t len);
 	nsapi_size_or_error_t read_remaining_length(size_t *val);
+
+private:
+	Socket *_socket;
 	Callback<void(mqtt_packet_type_t, void*)> packet_received_cb;
+	Callback<void(MqttClient*)> on_events_to_process_cb;
 };
 
 #endif /* __MQTT_CLIENT_H */
