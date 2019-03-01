@@ -46,7 +46,7 @@ static const char* mqtt_packet_type_to_str(mqtt_packet_type_t pkt_type)
 }
 #endif
 
-MqttClient::MqttClient(Socket *socket) : _socket(socket)
+MqttClient::MqttClient(Socket *socket) : _socket(socket), packet_received_cb(NULL), on_events_to_process_cb(NULL)
 {
 	
 }
@@ -765,7 +765,7 @@ nsapi_error_t MqttClient::process_events()
 			memset(&con_ack, 0, sizeof(mqtt_packet_connect_ack_t));
 			con_ack.session_present = (pl_raw[0] & 0x01);
 			con_ack.code = (mqtt_connect_returncode_t)pl_raw[1];
-			packet_received_cb(MQTT_PACKET_TYPE_CONNACK, &con_ack);
+			packet_received_cb(this, MQTT_PACKET_TYPE_CONNACK, &con_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBLISH:
@@ -797,7 +797,7 @@ nsapi_error_t MqttClient::process_events()
 			pub.payload.length = rem_len - (pub_buf - pl_raw);
 			pub.payload.content = pub_buf;
 			
-			packet_received_cb(MQTT_PACKET_TYPE_PUBLISH, &pub);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PUBLISH, &pub);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBACK:
@@ -806,7 +806,7 @@ nsapi_error_t MqttClient::process_events()
 			mqtt_packet_publish_ack_t pub_ack;
 			memset(&pub_ack, 0, sizeof(mqtt_packet_publish_ack_t));
 			pub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			packet_received_cb(MQTT_PACKET_TYPE_PUBACK, &pub_ack);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PUBACK, &pub_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBREC:
@@ -815,7 +815,7 @@ nsapi_error_t MqttClient::process_events()
 			mqtt_packet_publish_rec_t pub_rec;
 			memset(&pub_rec, 0, sizeof(mqtt_packet_publish_rec_t));
 			pub_rec.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			packet_received_cb(MQTT_PACKET_TYPE_PUBREC, &pub_rec);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PUBREC, &pub_rec);
 		}
 		break;		
 	case MQTT_PACKET_TYPE_PUBREL:
@@ -824,7 +824,7 @@ nsapi_error_t MqttClient::process_events()
 			mqtt_packet_publish_rel_t pub_rel;
 			memset(&pub_rel, 0, sizeof(mqtt_packet_publish_rel_t));
 			pub_rel.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			packet_received_cb(MQTT_PACKET_TYPE_PUBREL, &pub_rel);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PUBREL, &pub_rel);
 		}
 		break;		
 	case MQTT_PACKET_TYPE_PUBCOMP:
@@ -833,7 +833,7 @@ nsapi_error_t MqttClient::process_events()
 			mqtt_packet_publish_comp_t pub_comp;
 			memset(&pub_comp, 0, sizeof(mqtt_packet_publish_comp_t));
 			pub_comp.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			packet_received_cb(MQTT_PACKET_TYPE_PUBCOMP, &pub_comp);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PUBCOMP, &pub_comp);
 		}
 		break;		
 	case MQTT_PACKET_TYPE_SUBACK:
@@ -850,7 +850,7 @@ nsapi_error_t MqttClient::process_events()
 				{
 					sub_ack.responses[i] = (mqtt_subscribe_returncode_t)(pl_raw[i + 2]); // offset bytes used by packet id
 				}
-				packet_received_cb(MQTT_PACKET_TYPE_SUBACK, &sub_ack);
+				packet_received_cb(this, MQTT_PACKET_TYPE_SUBACK, &sub_ack);
 				free(sub_ack.responses);
 			}
 		}
@@ -861,13 +861,13 @@ nsapi_error_t MqttClient::process_events()
 			mqtt_packet_unsubscribe_ack_t unsub_ack;
 			memset(&unsub_ack, 0, sizeof(mqtt_packet_unsubscribe_ack_t));
 			unsub_ack.id = ((pl_raw[0] << 8) | pl_raw[1]);
-			packet_received_cb(MQTT_PACKET_TYPE_UNSUBACK, &unsub_ack);
+			packet_received_cb(this, MQTT_PACKET_TYPE_UNSUBACK, &unsub_ack);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PINGRESP:
 		if (packet_received_cb)
 		{
-			packet_received_cb(MQTT_PACKET_TYPE_PINGRESP, NULL);
+			packet_received_cb(this, MQTT_PACKET_TYPE_PINGRESP, NULL);
 		}
 		break;
 	}
@@ -876,7 +876,7 @@ nsapi_error_t MqttClient::process_events()
 	return bf_sz;
 }
 
-void MqttClient::packet_received(Callback<void(mqtt_packet_type_t, void*)> cb)
+void MqttClient::packet_received(Callback<void(MqttClient*, mqtt_packet_type_t, void*)> cb)
 {
 	packet_received_cb = cb;
 }

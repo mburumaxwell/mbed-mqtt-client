@@ -35,7 +35,7 @@ public:
 
 	nsapi_error_t process_events();
 	
-	void packet_received(Callback<void(mqtt_packet_type_t, void*)> cb);
+	void packet_received(Callback<void(MqttClient*, mqtt_packet_type_t, void*)> cb);
 
 	void on_events_to_process(Callback<void(MqttClient*)> cb) { on_events_to_process_cb = cb; }
 
@@ -48,7 +48,7 @@ private:
 
 private:
 	Socket *_socket;
-	Callback<void(mqtt_packet_type_t, void*)> packet_received_cb;
+	Callback<void(MqttClient*, mqtt_packet_type_t, void*)> packet_received_cb;
 	Callback<void(MqttClient*)> on_events_to_process_cb;
 };
 

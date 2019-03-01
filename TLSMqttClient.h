@@ -5,7 +5,7 @@
 
 class TLSMqttClient : public MqttClient {
 public:
-    TLSMqttClient() : MqttClient(&sock) { }
+	TLSMqttClient() : MqttClient(&sock), setup_cb(NULL) { }
 
     nsapi_error_t open(NetworkInterface *net, const char* hostname, const uint16_t port);
 	void setup(Callback<nsapi_error_t(TLSSocket*)> cb) { setup_cb = cb; }
