@@ -389,14 +389,6 @@ nsapi_error_t MqttClient::publish(mqtt_packet_publish_t *packet)
 
 nsapi_error_t MqttClient::publish_ack(const uint16_t packet_id)
 {
-	mqtt_packet_publish_ack_t packet = { 0 };
-	packet.id = packet_id;
-	
-	return publish_ack(&packet);
-}
-
-nsapi_error_t MqttClient::publish_ack(mqtt_packet_publish_ack_t *packet)
-{
 	nsapi_size_or_error_t sz_or_err;
 	mqtt_header_fixed_normal_t fhdr = { 0 };
 	
@@ -407,8 +399,92 @@ nsapi_error_t MqttClient::publish_ack(mqtt_packet_publish_ack_t *packet)
     uint8_t buf[4] = {
 		fhdr.whole,
 		2,
-		(uint8_t)(packet->id >> 8),
-		(uint8_t)(packet->id)
+		(uint8_t)(packet_id >> 8),
+		(uint8_t)(packet_id)
+	};
+	
+    sz_or_err = _socket->send(buf, 4);
+	if (sz_or_err <= 0)
+	{
+		tr_send_fail(sz_or_err);
+		return sz_or_err;
+	}
+
+	tr_send_success(4);
+	tr_hex_dump(buf, 4);
+	return sz_or_err;
+}
+
+nsapi_error_t MqttClient::publish_received(const uint16_t packet_id)
+{
+	nsapi_size_or_error_t sz_or_err;
+	mqtt_header_fixed_normal_t fhdr = { 0 };
+	
+	// form the header
+	fhdr.bits.packet_type = MQTT_PACKET_TYPE_PUBREC;
+	
+	// write the fixed header and 2 remaining length
+    uint8_t buf[4] = {
+		fhdr.whole,
+		2,
+		(uint8_t)(packet_id >> 8),
+		(uint8_t)(packet_id)
+	};
+	
+    sz_or_err = _socket->send(buf, 4);
+	if (sz_or_err <= 0)
+	{
+		tr_send_fail(sz_or_err);
+		return sz_or_err;
+	}
+
+	tr_send_success(4);
+	tr_hex_dump(buf, 4);
+	return sz_or_err;
+}
+
+nsapi_error_t MqttClient::publish_release(const uint16_t packet_id)
+{
+	nsapi_size_or_error_t sz_or_err;
+	mqtt_header_fixed_normal_t fhdr = { 0 };
+	
+	// form the header
+	fhdr.bits.packet_type = MQTT_PACKET_TYPE_PUBREL;
+	
+	// write the fixed header and 2 remaining length
+    uint8_t buf[4] = {
+		fhdr.whole,
+		2,
+		(uint8_t)(packet_id >> 8),
+		(uint8_t)(packet_id)
+	};
+	
+    sz_or_err = _socket->send(buf, 4);
+	if (sz_or_err <= 0)
+	{
+		tr_send_fail(sz_or_err);
+		return sz_or_err;
+	}
+
+	tr_send_success(4);
+	tr_hex_dump(buf, 4);
+	return sz_or_err;
+}
+
+nsapi_error_t MqttClient::publish_complete(const uint16_t packet_id)
+{
+	nsapi_size_or_error_t sz_or_err;
+	mqtt_header_fixed_normal_t fhdr = { 0 };
+	
+	// form the header
+	fhdr.bits.packet_type = MQTT_PACKET_TYPE_PUBCOMP;
+	
+	// write the fixed header and 2 remaining length
+    uint8_t buf[4] = {
+		fhdr.whole,
+		2,
+		(uint8_t)(packet_id >> 8),
+		(uint8_t)(packet_id)
 	};
 	
     sz_or_err = _socket->send(buf, 4);
@@ -615,7 +691,7 @@ nsapi_error_t MqttClient::unsubscribe(mqtt_packet_unsubscribe_t *packet)
 	return sz_or_err;
 }
 
-nsapi_error_t MqttClient::do_work()
+nsapi_error_t MqttClient::process_events()
 {
 	uint8_t fhdr_w, *bf, *pl_raw = NULL;
 	mqtt_header_fixed_normal_t fhdr = { 0 };
@@ -692,10 +768,36 @@ nsapi_error_t MqttClient::do_work()
 			packet_received_cb(MQTT_PACKET_TYPE_CONNACK, &con_ack);
 		}
 		break;
-	case MQTT_PACKET_TYPE_PINGRESP:
+	case MQTT_PACKET_TYPE_PUBLISH:
 		if (packet_received_cb)
 		{
-			packet_received_cb(MQTT_PACKET_TYPE_PINGRESP, NULL);
+			mqtt_packet_publish_t pub;
+			mqtt_header_fixed_publish_t *fhdr_pub = (mqtt_header_fixed_publish_t *)(&fhdr);
+			memset(&pub, 0, sizeof(mqtt_packet_publish_t));
+			pub.duplicate    = fhdr_pub->bits.dup;
+			pub.retain       = fhdr_pub->bits.retain;
+			pub.qos          = fhdr_pub->bits.qos;
+		
+			uint8_t *pub_buf = pl_raw;
+		
+			// read the topic length and set the topic address
+			pub.topic_len = (*pub_buf++) << 8;
+			pub.topic_len |= *pub_buf++;
+			pub.topic = (char *)pub_buf;
+			pub_buf += pub.topic_len;
+		
+			// set the packet id if required
+			if (pub.qos > MQTT_PACKET_DELIVERY_AT_MOST_ONCE)
+			{
+				pub.id = (*pub_buf++) << 8;
+				pub.id |= *pub_buf++;
+			}
+		
+			// set the payload
+			pub.payload.length = rem_len - (pub_buf - pl_raw);
+			pub.payload.content = pub_buf;
+			
+			packet_received_cb(MQTT_PACKET_TYPE_PUBLISH, &pub);
 		}
 		break;
 	case MQTT_PACKET_TYPE_PUBACK:
@@ -707,6 +809,33 @@ nsapi_error_t MqttClient::do_work()
 			packet_received_cb(MQTT_PACKET_TYPE_PUBACK, &pub_ack);
 		}
 		break;
+	case MQTT_PACKET_TYPE_PUBREC:
+		if (packet_received_cb)
+		{
+			mqtt_packet_publish_rec_t pub_rec;
+			memset(&pub_rec, 0, sizeof(mqtt_packet_publish_rec_t));
+			pub_rec.id = ((pl_raw[0] << 8) | pl_raw[1]);
+			packet_received_cb(MQTT_PACKET_TYPE_PUBREC, &pub_rec);
+		}
+		break;		
+	case MQTT_PACKET_TYPE_PUBREL:
+		if (packet_received_cb)
+		{
+			mqtt_packet_publish_rel_t pub_rel;
+			memset(&pub_rel, 0, sizeof(mqtt_packet_publish_rel_t));
+			pub_rel.id = ((pl_raw[0] << 8) | pl_raw[1]);
+			packet_received_cb(MQTT_PACKET_TYPE_PUBREL, &pub_rel);
+		}
+		break;		
+	case MQTT_PACKET_TYPE_PUBCOMP:
+		if (packet_received_cb)
+		{
+			mqtt_packet_publish_comp_t pub_comp;
+			memset(&pub_comp, 0, sizeof(mqtt_packet_publish_comp_t));
+			pub_comp.id = ((pl_raw[0] << 8) | pl_raw[1]);
+			packet_received_cb(MQTT_PACKET_TYPE_PUBCOMP, &pub_comp);
+		}
+		break;		
 	case MQTT_PACKET_TYPE_SUBACK:
 		if (packet_received_cb)
 		{
@@ -735,37 +864,10 @@ nsapi_error_t MqttClient::do_work()
 			packet_received_cb(MQTT_PACKET_TYPE_UNSUBACK, &unsub_ack);
 		}
 		break;
-	case MQTT_PACKET_TYPE_PUBLISH:
-		mqtt_packet_publish_t pub;
-		mqtt_header_fixed_publish_t *fhdr_pub = (mqtt_header_fixed_publish_t *)(&fhdr);
-		memset(&pub, 0, sizeof(mqtt_packet_publish_t));
-		pub.duplicate    = fhdr_pub->bits.dup;
-		pub.retain       = fhdr_pub->bits.retain;
-		pub.qos          = fhdr_pub->bits.qos;
-		
-		uint8_t *pub_buf = pl_raw;
-		
-		// read the topic length and set the topic address
-		pub.topic_len = (*pub_buf++) << 8;
-		pub.topic_len |= *pub_buf++;
-		pub.topic = (char *)pub_buf;
-		pub_buf += pub.topic_len;
-		
-		// set the packet id if required
-		if (pub.qos > MQTT_PACKET_DELIVERY_AT_MOST_ONCE)
+	case MQTT_PACKET_TYPE_PINGRESP:
+		if (packet_received_cb)
 		{
-			pub.id = (*pub_buf++) << 8;
-			pub.id |= *pub_buf++;
-		}
-		
-		// set the payload
-		pub.payload.length = rem_len - (pub_buf - pl_raw);
-		pub.payload.content = pub_buf;
-		
-		// make the callback if available
-		if(packet_received_cb)
-		{
-			packet_received_cb(MQTT_PACKET_TYPE_PUBLISH, &pub);
+			packet_received_cb(MQTT_PACKET_TYPE_PINGRESP, NULL);
 		}
 		break;
 	}

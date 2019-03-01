@@ -119,6 +119,18 @@ typedef struct {
  	uint16_t id;
  } mqtt_packet_publish_ack_t;
 
+ typedef struct {
+ 	uint16_t id;
+ } mqtt_packet_publish_rec_t;
+
+ typedef struct {
+ 	uint16_t id;
+ } mqtt_packet_publish_rel_t;
+
+ typedef struct {
+ 	uint16_t id;
+ } mqtt_packet_publish_comp_t;
+
 typedef enum {
 	MQTT_PACKET_SUBSCRIBE_SUCCESS_QOS0	= MQTT_QOS_AT_MOST_ONCE,
 	MQTT_PACKET_SUBSCRIBE_SUCCESS_QOS1	= MQTT_QOS_AT_LEAST_ONCE,

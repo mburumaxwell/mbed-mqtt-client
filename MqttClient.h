@@ -21,7 +21,9 @@ public:
 	nsapi_error_t publish(mqtt_packet_publish_t *packet);
 
 	nsapi_error_t publish_ack(const uint16_t packet_id);
-	nsapi_error_t publish_ack(mqtt_packet_publish_ack_t *packet);
+	nsapi_error_t publish_received(const uint16_t packet_id);
+	nsapi_error_t publish_release(const uint16_t packet_id);
+	nsapi_error_t publish_complete(const uint16_t packet_id);
 
 	nsapi_error_t subscribe(const char *topic, const uint16_t packet_id);
 	nsapi_error_t subscribe(mqtt_subscribe_request_t* requests, const uint8_t count, const uint16_t packet_id);
@@ -31,7 +33,7 @@ public:
 	nsapi_error_t unsubscribe(mqtt_unsubscribe_request_t* requests, const uint8_t count, const uint16_t packet_id);
 	nsapi_error_t unsubscribe(mqtt_packet_unsubscribe_t *packet);
 
-	nsapi_error_t do_work();
+	nsapi_error_t process_events();
 	
 	void packet_received(Callback<void(mqtt_packet_type_t, void*)> cb);
 
