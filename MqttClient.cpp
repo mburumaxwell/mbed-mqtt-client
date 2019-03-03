@@ -6,6 +6,10 @@
 #define tr_hex_dump( ... )
 #endif
 
+#ifndef _max
+#define _max(n1,n2) (n1 > n2 ? n1 : n2)
+#endif
+
 #define TRACE_GROUP				"MQTT_CLIENT"
 #define tr_send_fail(err)		tr_error("> Write to server : failed! send returned %d", err)
 #define tr_send_success(len)	tr_debug("> Write to server : %d bytes written", len)
@@ -313,8 +317,7 @@ nsapi_error_t MqttClient::publish(mqtt_packet_publish_t *packet)
 	size_t variable_header_len, variable_part_len, required_buf_len, remaining_length, len;
 	uint8_t *buf = NULL, *tdst = NULL;
 
-	if (packet->topic == NULL || (strlen(packet->topic) != packet->topic_len)
-		|| packet->payload.content == NULL || packet->payload.length <= 0)
+	if (packet->topic == NULL || (strlen(packet->topic) != packet->topic_len))
 	{
 		return NSAPI_ERROR_PARAMETER;
 	}
@@ -371,19 +374,22 @@ nsapi_error_t MqttClient::publish(mqtt_packet_publish_t *packet)
 
 	tr_send_success(len);
 	tr_hex_dump(buf, len);
-
-	// now send the payload
-    sz_or_err = _socket->send(packet->payload.content, packet->payload.length);
-	if (sz_or_err <= 0)
-	{
-		tr_send_fail(sz_or_err);
-		free(buf);
-		return sz_or_err;
-	}
-
-	tr_send_success(packet->payload.length);
-	tr_hex_dump(packet->payload.content, packet->payload.length);
 	free(buf);
+
+	// now send the payload if we have any ("It is valid for a PUBLISH Packet to contain a zero length payload." According to section 3.3.3 Payload)
+	if(packet->payload.content != NULL && packet->payload.length > 0)
+	{
+		sz_or_err = _socket->send(packet->payload.content, packet->payload.length);
+		if (sz_or_err <= 0)
+		{
+			tr_send_fail(sz_or_err);
+			return sz_or_err;
+		}
+
+		tr_send_success(packet->payload.length);
+		tr_hex_dump(packet->payload.content, packet->payload.length);
+	}
+		
 	return sz_or_err;
 }
 
@@ -793,9 +799,9 @@ nsapi_error_t MqttClient::process_events()
 				pub.id |= *pub_buf++;
 			}
 		
-			// set the payload
-			pub.payload.length = rem_len - (pub_buf - pl_raw);
-			pub.payload.content = pub_buf;
+			// set the payload if any
+			pub.payload.length = _max(rem_len - (pub_buf - pl_raw), 0); // prevent non-zero
+			pub.payload.content = pub.payload.length > 0 ? pub_buf : NULL;
 			
 			packet_received_cb(this, MQTT_PACKET_TYPE_PUBLISH, &pub);
 		}
